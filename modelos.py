@@ -42,6 +42,7 @@ class GestorRecursos:
             os.makedirs(self.directorio_imagenes)
             print("Se creó el directorio 'images'")
             
+        # MEJORA 1: Agregar imagen del BOSS para el modo Sombras
         nombres_imagenes = {
             "TORRE_BLANCO": "torre_blanca.png",
             "CABALLO_BLANCO": "caballo_blanco.png",
@@ -54,7 +55,8 @@ class GestorRecursos:
             "ALFIL_NEGRO": "alfil_negro.png",
             "REINA_NEGRO": "reina_negra.png",
             "REY_NEGRO": "rey_negro.png",
-            "PEON_NEGRO": "peon_negro.png"
+            "PEON_NEGRO": "peon_negro.png",
+            "BOSS": "boss.png"  # Imagen especial del Boss (Rey Caído)
         }
         
         for nombre, archivo in nombres_imagenes.items():

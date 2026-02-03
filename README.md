@@ -2,6 +2,18 @@
 
 Proyecto modular para practicar POO con un juego de ajedrez en Pygame, con integración de reglas vía python-chess, soporte de sonido, motores UCI locales y **juego en red LAN**.
 
+## 📚 Wiki del Proyecto
+
+Para documentación completa y detallada, visita la **[Wiki del Proyecto](wiki/Home.md)**:
+
+- **[🏠 Inicio](wiki/Home.md)** - Visión general y navegación
+- **[📜 Historia](wiki/Historia.md)** - Evolución y desarrollo del proyecto
+- **[🛠️ Tecnologías](wiki/Tecnologia.md)** - Stack tecnológico completo
+- **[🎓 Prácticas](wiki/Practicas.md)** - Metodologías y POO aplicado
+- **[🏛️ Arquitectura](wiki/Arquitectura.md)** - Estructura y componentes
+- **[📖 Guía de Uso](wiki/Guia-de-Uso.md)** - Instalación y manual de juego
+- **[🚀 Desarrollo Futuro](wiki/Desarrollo-Futuro.md)** - Roadmap y características planificadas
+
 ## Estructura simple
 - [modelos.py](file:///e:/GIT/Ajedrez/modelos.py): Color, TipoPieza, EstadoJuego y GestorRecursos (imágenes y sonidos)
 - [pieza.py](file:///e:/GIT/Ajedrez/pieza.py): movimientos candidatos por tipo de pieza
@@ -13,19 +25,42 @@ Proyecto modular para practicar POO con un juego de ajedrez en Pygame, con integ
 - [docs/guia_pygame_ajedrez.md](file:///e:/GIT/Ajedrez/docs/guia_pygame_ajedrez.md): guía didáctica por etapas
 
 ## Funcionalidad implementada
-- **Menú principal con múltiples modos de juego:**
+
+### 🎮 Sistema de Menús Mejorado
+- **Menú principal jerárquico** con navegación por teclado
+- **Fondos de menú personalizados:**
+  - `menu_classic.png` para Ajedrez Clásico
+  - `menu_soul.png` para Ajedrez Sombras
+  - Sistema de bucle para volver al menú principal desde cualquier modo
+- **Sonido "ficha.mp3":**
+  - Reproducción en navegación de menú y confirmación
+  - Al mover una pieza durante la partida
+
+### ♟️ Ajedrez Clásico
+- **Múltiples modos de juego:**
   - "Jugador vs Jugador" (local)
   - "Partida LAN - Crear Servidor" (juega con blancas)
   - "Partida LAN - Unirse a Servidor" (juega con negras)
-  - "Jugador vs Maquina (Próximamente)"
+  - "Jugador vs Máquina (Stockfish)" - Motor UCI integrado
 - Render del tablero y temporizadores por color
-- Fondo visual del menú (menu.png)
-- Sonido "ficha.mp3":
-  - En menú (navegación y confirmar)
-  - Al mover una pieza durante la partida
 - Reglas y análisis:
   - Conversión a FEN y validación de legalidad con python-chess
   - Sugerencia de jugada vía motores UCI (Stockfish, LCZero) con niveles
+
+### 👁️ Ajedrez Sombras (Modo RPG)
+- **Sistema de combate RPG:**
+  - 7 tipos de piezas con HP y daño (Peón: 20HP/5DMG ... Boss: 300HP/100DMG)
+  - Combate por eliminación (no captura instantánea)
+  - Barras de HP visuales con código de colores (verde/amarillo/rojo)
+  - Números de HP visibles (ej: "50/100")
+- **Presentación visual mejorada:**
+  - Usa imágenes PNG de piezas del ajedrez clásico
+  - **Boss con imagen especial** (`boss.png`) y borde dorado
+  - Efectos visuales distintivos para el Rey Caído
+- **Mecánicas de juego:**
+  - Niebla de guerra (visibilidad 3x3 alrededor del Rey)
+  - Boss IA con táctica de invocación (30% por turno)
+  - Victoria al derrotar al Boss, derrota si cae tu Rey
 - **Sistema de juego en red LAN:**
   - Comunicación cliente-servidor mediante sockets TCP
   - Protocolo JSON para sincronización de movimientos
