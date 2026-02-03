@@ -447,8 +447,12 @@ def juego_sombras():
     print("Eres el AZUL (Jugador). Tu enemigo es el ROJO (Boss Enemigo).")
     print("¡Objetivos: Explora, lucha, y derrota al Rey Caído!\n")
     
-    # Crear tablero y IA
-    tablero = TableroSombras()
+    # MEJORA 14: Crear gestor de recursos para cargar imágenes de piezas
+    from modelos import GestorRecursos
+    gestor = GestorRecursos()
+    
+    # MEJORA 15: Pasar gestor al TableroSombras para usar imágenes reales
+    tablero = TableroSombras(gestor_recursos=gestor)
     ia = IASombras(tablero)
     
     # Crear UI (simplificada para Sombras)
@@ -536,19 +540,14 @@ def juego_sombras():
         # Dibujar tablero
         tablero.dibujar(pantalla)
         
+        # MEJORA 16: Dibujar barras de HP didácticas sobre todas las piezas
+        for pieza in tablero.piezas:
+            pieza.dibujar_barra_hp(pantalla)
+        
         # Dibujar información
         info_turno = f"Turno: {turno}"
         info_text = fuente.render(info_turno, True, (255, 255, 255))
         pantalla.blit(info_text, (10, 10))
-        
-        # Dibujar HP de piezas (simplificado)
-        for pieza in tablero.piezas:
-            if pieza.hp < pieza.hp_max:
-                # Mostrar HP encima de pieza dañada
-                hp_text = fuente.render(f"HP:{pieza.hp}/{pieza.hp_max}", True, (255, 100, 100))
-                x_screen = BOARD_OFFSET_X + pieza.grid_x * TILE_SIZE + 5
-                y_screen = BOARD_OFFSET_Y + pieza.grid_y * TILE_SIZE - 20
-                pantalla.blit(hp_text, (x_screen, y_screen))
         
         pygame.display.flip()
     

@@ -122,6 +122,55 @@ class PiezaSombra(pygame.sprite.Sprite):
         self.rect.centerx = BOARD_OFFSET_X + (self.grid_x * TILE_SIZE) + (TILE_SIZE // 2)
         self.rect.centery = BOARD_OFFSET_Y + (self.grid_y * TILE_SIZE) + (TILE_SIZE // 2)
     
+    def dibujar_barra_hp(self, superficie):
+        """
+        MEJORA 8: Dibuja barra de HP sobre la pieza de forma didáctica
+        - Barra verde/amarilla/roja según HP restante
+        - Muestra HP actual/máximo
+        - Borde destacado para el Boss
+        """
+        # Calcular posición de la barra (encima de la pieza)
+        barra_ancho = TILE_SIZE - 15
+        barra_alto = 5
+        barra_x = self.rect.x + 2
+        barra_y = self.rect.y - 8
+        
+        # Calcular porcentaje de HP
+        porcentaje_hp = self.hp / self.hp_max
+        ancho_hp = int(barra_ancho * porcentaje_hp)
+        
+        # Elegir color según HP (verde > amarillo > rojo)
+        if porcentaje_hp > 0.6:
+            color_hp = GREEN
+        elif porcentaje_hp > 0.3:
+            color_hp = YELLOW
+        else:
+            color_hp = RED
+        
+        # Dibujar fondo de la barra (negro)
+        pygame.draw.rect(superficie, BLACK, (barra_x, barra_y, barra_ancho, barra_alto))
+        
+        # Dibujar HP actual
+        if ancho_hp > 0:
+            pygame.draw.rect(superficie, color_hp, (barra_x, barra_y, ancho_hp, barra_alto))
+        
+        # MEJORA 9: Si es Boss, agregar borde dorado a la barra
+        if self.es_boss:
+            pygame.draw.rect(superficie, YELLOW, (barra_x - 1, barra_y - 1, barra_ancho + 2, barra_alto + 2), 2)
+        else:
+            pygame.draw.rect(superficie, WHITE, (barra_x, barra_y, barra_ancho, barra_alto), 1)
+        
+        # MEJORA 10: Mostrar números de HP para mayor claridad (opcional pero didáctico)
+        if self.gestor_recursos:  # Solo si usamos imágenes (más espacio visual)
+            font = pygame.font.SysFont("Arial", 8, bold=True)
+            texto_hp = f"{self.hp}/{self.hp_max}"
+            text_surface = font.render(texto_hp, True, WHITE)
+            text_rect = text_surface.get_rect(center=(barra_x + barra_ancho // 2, barra_y + barra_alto // 2))
+            # Sombra para legibilidad
+            shadow_surface = font.render(texto_hp, True, BLACK)
+            superficie.blit(shadow_surface, (text_rect.x + 1, text_rect.y + 1))
+            superficie.blit(text_surface, text_rect)
+    
     def recibir_damage(self, cantidad):
         """Reduce HP y retorna True si la pieza muere.
         
@@ -211,8 +260,8 @@ class PiezaSombraPeon(PiezaSombra):
     - No puede retroceder
     """
     
-    def __init__(self, x, y, team):
-        super().__init__(x, y, team, "PEON")
+    def __init__(self, x, y, team, gestor_recursos=None):
+        super().__init__(x, y, team, "PEON", gestor_recursos)
         self.primer_movimiento = True
     
     def obtener_movimientos_validos(self, tablero):
@@ -256,8 +305,8 @@ class PiezaSombraCaballo(PiezaSombra):
     - 8 movimientos posibles desde cualquier posición
     """
     
-    def __init__(self, x, y, team):
-        super().__init__(x, y, team, "CABALLO")
+    def __init__(self, x, y, team, gestor_recursos=None):
+        super().__init__(x, y, team, "CABALLO", gestor_recursos)
     
     def obtener_movimientos_validos(self, tablero):
         """Calcula 8 posibles movimientos en L."""
@@ -283,8 +332,8 @@ class PiezaSombraAlpil(PiezaSombra):
     - Puede capturar piezas enemigas
     """
     
-    def __init__(self, x, y, team):
-        super().__init__(x, y, team, "ALFIL")
+    def __init__(self, x, y, team, gestor_recursos=None):
+        super().__init__(x, y, team, "ALFIL", gestor_recursos)
     
     def obtener_movimientos_validos(self, tablero):
         """Calcula movimientos en las 4 diagonales."""
@@ -302,8 +351,8 @@ class PiezaSombraTorre(PiezaSombra):
     - Una de las piezas más poderosas en el tablero
     """
     
-    def __init__(self, x, y, team):
-        super().__init__(x, y, team, "TORRE")
+    def __init__(self, x, y, team, gestor_recursos=None):
+        super().__init__(x, y, team, "TORRE", gestor_recursos)
     
     def obtener_movimientos_validos(self, tablero):
         """Calcula movimientos en las 4 direcciones cardinales."""
@@ -321,8 +370,8 @@ class PiezaSombraReina(PiezaSombra):
     - La pieza más poderosa junto al Rey (excluyendo Boss)
     """
     
-    def __init__(self, x, y, team):
-        super().__init__(x, y, team, "REINA")
+    def __init__(self, x, y, team, gestor_recursos=None):
+        super().__init__(x, y, team, "REINA", gestor_recursos)
     
     def obtener_movimientos_validos(self, tablero):
         """Calcula movimientos en todas las 8 direcciones."""
@@ -343,10 +392,10 @@ class PiezaSombraRey(PiezaSombra):
         es_boss (bool): True solo para el Rey Caído enemigo (líder de la IA)
     """
     
-    def __init__(self, x, y, team, es_boss=False):
+    def __init__(self, x, y, team, es_boss=False, gestor_recursos=None):
         # Si es Boss, usa estadísticas especiales ("BOSS" en STATS)
         tipo_key = "BOSS" if es_boss else "REY"
-        super().__init__(x, y, team, tipo_key)
+        super().__init__(x, y, team, tipo_key, gestor_recursos)
         self.es_boss = es_boss  # Marca el Rey Caído
     
     def obtener_movimientos_validos(self, tablero):

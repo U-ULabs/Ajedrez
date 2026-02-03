@@ -11,38 +11,46 @@ from .pieza_sombras import (
 class TableroSombras:
     """Tablero 8x8 con sistema de niebla de guerra y combate RPG."""
     
-    def __init__(self):
+    def __init__(self, gestor_recursos=None):
+        """
+        MEJORA 11: Aceptar gestor_recursos para usar imágenes reales
+        - Si gestor_recursos es None, las piezas usarán rectángulos de color (legacy)
+        - Si se pasa gestor, las piezas cargarán imágenes PNG y el Boss tendrá imagen especial
+        """
         self.grid = [[None for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
         self.piezas = pygame.sprite.Group()
         self.niebla = [[True for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
+        self.gestor_recursos = gestor_recursos  # Guardar referencia al gestor
         self.configurar_tablero()
         self.actualizar_niebla(TEAM_PLAYER)
     
     def configurar_tablero(self):
         """Configura el tablero con disposición estándar de ajedrez."""
+        # MEJORA 12: Pasar gestor_recursos a cada pieza para usar imágenes
         # Blancas (Jugador) - Fila 7 y 6
-        self.agregar_pieza(PiezaSombraTorre(0, 7, TEAM_PLAYER))
-        self.agregar_pieza(PiezaSombraCaballo(1, 7, TEAM_PLAYER))
-        self.agregar_pieza(PiezaSombraAlpil(2, 7, TEAM_PLAYER))
-        self.agregar_pieza(PiezaSombraReina(3, 7, TEAM_PLAYER))
-        self.agregar_pieza(PiezaSombraRey(4, 7, TEAM_PLAYER, es_boss=False))
-        self.agregar_pieza(PiezaSombraAlpil(5, 7, TEAM_PLAYER))
-        self.agregar_pieza(PiezaSombraCaballo(6, 7, TEAM_PLAYER))
-        self.agregar_pieza(PiezaSombraTorre(7, 7, TEAM_PLAYER))
+        self.agregar_pieza(PiezaSombraTorre(0, 7, TEAM_PLAYER, self.gestor_recursos))
+        self.agregar_pieza(PiezaSombraCaballo(1, 7, TEAM_PLAYER, self.gestor_recursos))
+        self.agregar_pieza(PiezaSombraAlpil(2, 7, TEAM_PLAYER, self.gestor_recursos))
+        self.agregar_pieza(PiezaSombraReina(3, 7, TEAM_PLAYER, self.gestor_recursos))
+        self.agregar_pieza(PiezaSombraRey(4, 7, TEAM_PLAYER, es_boss=False, gestor_recursos=self.gestor_recursos))
+        self.agregar_pieza(PiezaSombraAlpil(5, 7, TEAM_PLAYER, self.gestor_recursos))
+        self.agregar_pieza(PiezaSombraCaballo(6, 7, TEAM_PLAYER, self.gestor_recursos))
+        self.agregar_pieza(PiezaSombraTorre(7, 7, TEAM_PLAYER, self.gestor_recursos))
         for x in range(8):
-            self.agregar_pieza(PiezaSombraPeon(x, 6, TEAM_PLAYER))
+            self.agregar_pieza(PiezaSombraPeon(x, 6, TEAM_PLAYER, self.gestor_recursos))
         
         # Negras (Enemigo) - Fila 0 y 1, con Boss
-        self.agregar_pieza(PiezaSombraTorre(0, 0, TEAM_ENEMY))
-        self.agregar_pieza(PiezaSombraCaballo(1, 0, TEAM_ENEMY))
-        self.agregar_pieza(PiezaSombraAlpil(2, 0, TEAM_ENEMY))
-        self.agregar_pieza(PiezaSombraReina(3, 0, TEAM_ENEMY))
-        self.agregar_pieza(PiezaSombraRey(4, 0, TEAM_ENEMY, es_boss=True))  # BOSS
-        self.agregar_pieza(PiezaSombraAlpil(5, 0, TEAM_ENEMY))
-        self.agregar_pieza(PiezaSombraCaballo(6, 0, TEAM_ENEMY))
-        self.agregar_pieza(PiezaSombraTorre(7, 0, TEAM_ENEMY))
+        # MEJORA 13: El Boss (posición 4,0) usará la imagen boss.png
+        self.agregar_pieza(PiezaSombraTorre(0, 0, TEAM_ENEMY, self.gestor_recursos))
+        self.agregar_pieza(PiezaSombraCaballo(1, 0, TEAM_ENEMY, self.gestor_recursos))
+        self.agregar_pieza(PiezaSombraAlpil(2, 0, TEAM_ENEMY, self.gestor_recursos))
+        self.agregar_pieza(PiezaSombraReina(3, 0, TEAM_ENEMY, self.gestor_recursos))
+        self.agregar_pieza(PiezaSombraRey(4, 0, TEAM_ENEMY, es_boss=True, gestor_recursos=self.gestor_recursos))  # BOSS con imagen especial
+        self.agregar_pieza(PiezaSombraAlpil(5, 0, TEAM_ENEMY, self.gestor_recursos))
+        self.agregar_pieza(PiezaSombraCaballo(6, 0, TEAM_ENEMY, self.gestor_recursos))
+        self.agregar_pieza(PiezaSombraTorre(7, 0, TEAM_ENEMY, self.gestor_recursos))
         for x in range(8):
-            self.agregar_pieza(PiezaSombraPeon(x, 1, TEAM_ENEMY))
+            self.agregar_pieza(PiezaSombraPeon(x, 1, TEAM_ENEMY, self.gestor_recursos))
     
     def agregar_pieza(self, pieza):
         """Agrega una pieza al tablero."""
