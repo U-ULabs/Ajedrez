@@ -1,6 +1,6 @@
 # Roadmap Ajedrez v2.0 - Estado y Visión
 
-## 📊 Estado Actual (v2.0 - Febrero 2026)
+## 📊 Estado Actual (v2.1 - Febrero 2026)
 
 ### ✅ COMPLETADO
 
@@ -42,6 +42,20 @@
 - ✅ Boss IA con táctica de invocación (30% por turno)
 - ✅ Victoria/Derrota detectadas
 - ✅ Menú jerárquico integrado
+- ✅ **Sistema visual mejorado:**
+  - Imágenes PNG de piezas clásicas integradas
+  - Imagen especial del Boss (boss.png) con borde dorado
+  - Barras de HP visuales con código de colores (verde/amarillo/rojo)
+  - Números de HP visibles sobre cada pieza
+  - Presentación didáctica y profesional
+
+#### Sistema de Menús y Navegación
+- ✅ Menú principal jerárquico con bucle de retorno
+- ✅ Fondos personalizados por modo:
+  - menu_classic.png para Ajedrez Clásico
+  - menu_soul.png para Ajedrez Sombras
+- ✅ Navegación por teclado con sonido
+- ✅ Sistema modular de Menú con parámetro 'modo'
 
 #### Documentación y Código
 - ✅ Comentarios extensos en ajedrez_sombras/
@@ -81,6 +95,11 @@
 - [ ] Indicador visual de turno (LED/banner)
 - [ ] Animación de movimientos (transición suave)
 - [ ] Panel de información: última jugada, reloj, estado
+- ✅ **Sistema visual para Ajedrez Sombras** (COMPLETADO v2.1)
+  - Barras de HP con código de colores
+  - Imágenes de piezas integradas
+  - Efectos visuales para el Boss
+- ✅ **Menús con fondos personalizados** (COMPLETADO v2.1)
 
 **Impacto:** Experiencia de usuario mejorada
 

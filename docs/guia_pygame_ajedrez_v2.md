@@ -52,7 +52,7 @@ Ajedrez/
 
 ## 🔄 Flujo de Control Principal
 
-### Menú Jerárquico (main.py)
+### Menú Jerárquico (main.py) - Sistema Mejorado v2.1
 
 ```
 ┌─────────────────────────────────────┐
@@ -63,11 +63,81 @@ Ajedrez/
 │  │  ├─ Jugador vs Jugador          │ ← juego_local()
 │  │  ├─ LAN Servidor                │ ← juego_lan_servidor()
 │  │  ├─ LAN Cliente                 │ ← juego_lan_cliente()
-│  │  └─ vs Máquina (Stockfish)      │ ← juego_vs_maquina()
+│  │  ├─ vs Máquina (Stockfish)      │ ← juego_vs_maquina()
+│  │  └─ Volver                      │ ← Regresa al menú principal
 │  │                                  │
 │  └─ AJEDREZ SOMBRAS (RPG)          │
-│     └─ Vs Boss IA                  │ ← juego_sombras()
+│     ├─ Vs Boss IA                  │ ← juego_sombras()
+│     └─ Volver                      │ ← Regresa al menú principal
 │                                     │
+│  Salir                              │ ← Cierra el juego
+└─────────────────────────────────────┘
+```
+
+**Navegación mejorada (v2.1):**
+- `↑ ↓` : Cambiar opción
+- `ENTER` : Seleccionar
+- **Bucle principal**: Opción "Volver" regresa al menú sin cerrar el juego
+- **Fondos personalizados**:
+  - `menu_classic.png` - Fondo para menú de Ajedrez Clásico
+  - `menu_soul.png` - Fondo para menú de Ajedrez Sombras
+  - Carga dinámica según parámetro `modo` en clase `Menu`
+
+### Sistema de Menús (ui.py - Menu)
+
+```python
+class Menu:
+    def __init__(self, opciones: List[str], modo: str = "default"):
+        """Inicializa menú con fondo personalizado.
+        
+        Args:
+            opciones: Lista de opciones del menú
+            modo: "default", "classic", o "soul" (determina imagen de fondo)
+        """
+        # Cargar imagen de fondo según modo
+        if modo == "classic":
+            nombre_fondo = "menu_classic.png"
+        elif modo == "soul":
+            nombre_fondo = "menu_soul.png"
+        else:
+            nombre_fondo = "menu.png"
+        
+        # Cargar y escalar imagen
+        ruta_fondo = os.path.join(self.gestor.directorio_imagenes, nombre_fondo)
+        fondo = pygame.image.load(ruta_fondo).convert()
+        self._fondo_menu = pygame.transform.scale(fondo, self.pantalla.get_size())
+    
+    def loop(self) -> Optional[str]:
+        """Bucle del menú con navegación por teclado."""
+        while True:
+            # Dibujar fondo personalizado
+            if self._fondo_menu:
+                self.pantalla.blit(self._fondo_menu, (0, 0))
+            
+            # Renderizar opciones
+            for idx, texto in enumerate(self.opciones):
+                color = (255, 255, 255) if idx == self.seleccion else (180, 180, 180)
+                superficie = self.fuente.render(texto, True, color)
+                self.pantalla.blit(superficie, (60, 60 + idx * 50))
+```
+
+**Uso en main.py:**
+```python
+# Menú clásico con fondo personalizado
+menu_clasico = Menu([
+    "Jugador vs Jugador",
+    "Partida LAN - Crear Servidor",
+    "Partida LAN - Unirse a Servidor",
+    "Jugador vs Máquina (Stockfish)",
+    "Volver"
+], modo="classic")  # Carga menu_classic.png
+
+# Menú sombras con fondo personalizado
+menu_sombras = Menu([
+    "Jugador vs Boss IA",
+    "Volver"
+], modo="soul")  # Carga menu_soul.png
+```
 └─────────────────────────────────────┘
 ```
 
@@ -244,10 +314,96 @@ def juego_vs_maquina():
 
 ## 🌑 Ajedrez Sombras - Arquitectura RPG
 
-### 1. Sistema de Piezas con HP/Daño
+### 1. Sistema de Piezas con HP/Daño y Visualización Mejorada
 
 ```python
 class PiezaSombra(pygame.sprite.Sprite):
+    """Pieza base con sistema RPG y renderizado visual mejorado.
+    
+    Atributos:
+        - hp, hp_max: Puntos de vida
+        - damage: Daño por ataque
+        - es_boss: True solo para el Rey Caído
+        - gestor_recursos: Para cargar imágenes PNG (nuevo en v2.1)
+    """
+    
+    def __init__(self, grid_x, grid_y, team, tipo_key, gestor_recursos=None):
+        # Cargar estadísticas RPG
+        stats = STATS.get(tipo_key, STATS["PEON"])
+        self.hp_max = stats["hp"]
+        self.hp = self.hp_max
+        self.damage = stats["dmg"]
+        
+        # MEJORA v2.1: Cargar imagen real o usar rectángulo legacy
+        if gestor_recursos:
+            self._cargar_imagen_pieza()  # Usa PNG del ajedrez clásico
+        else:
+            self._crear_imagen_legacy()  # Rectángulo de color
+    
+    def _cargar_imagen_pieza(self):
+        """Carga imagen PNG según tipo y equipo."""
+        # Si es Boss → usa boss.png
+        if self.es_boss:
+            clave_imagen = "BOSS"
+        else:
+            # Ejemplo: "TORRE_BLANCO", "CABALLO_NEGRO"
+            color_equipo = "BLANCO" if self.team == TEAM_PLAYER else "NEGRO"
+            clave_imagen = f"{self.tipo}_{color_equipo}"
+        
+        imagen_base = self.gestor_recursos.imagenes.get(clave_imagen)
+        
+        # Crear superficie con espacio para barra de HP
+        self.image = pygame.Surface((TILE_SIZE - 10, TILE_SIZE - 10), pygame.SRCALPHA)
+        img_escalada = pygame.transform.scale(imagen_base, (TILE_SIZE - 15, TILE_SIZE - 25))
+        self.image.blit(img_escalada, (2, 5))
+        
+        # Si es Boss, agregar borde dorado especial
+        if self.es_boss:
+            pygame.draw.rect(self.image, YELLOW, self.image.get_rect(), 3)
+    
+    def dibujar_barra_hp(self, superficie):
+        """Dibuja barra de HP didáctica sobre la pieza.
+        
+        Características:
+        - Verde (>60% HP), Amarilla (30-60%), Roja (<30%)
+        - Muestra números: "HP actual/HP máximo"
+        - Borde dorado para el Boss
+        """
+        # Calcular posición y tamaño
+        barra_ancho = TILE_SIZE - 15
+        barra_alto = 5
+        barra_x = self.rect.x + 2
+        barra_y = self.rect.y - 8
+        
+        # Color según porcentaje de HP
+        porcentaje_hp = self.hp / self.hp_max
+        if porcentaje_hp > 0.6:
+            color_hp = GREEN
+        elif porcentaje_hp > 0.3:
+            color_hp = YELLOW
+        else:
+            color_hp = RED
+        
+        # Dibujar fondo negro + HP actual
+        pygame.draw.rect(superficie, BLACK, (barra_x, barra_y, barra_ancho, barra_alto))
+        ancho_hp = int(barra_ancho * porcentaje_hp)
+        if ancho_hp > 0:
+            pygame.draw.rect(superficie, color_hp, (barra_x, barra_y, ancho_hp, barra_alto))
+        
+        # Borde (dorado para Boss, blanco para otros)
+        if self.es_boss:
+            pygame.draw.rect(superficie, YELLOW, (barra_x - 1, barra_y - 1, barra_ancho + 2, barra_alto + 2), 2)
+        else:
+            pygame.draw.rect(superficie, WHITE, (barra_x, barra_y, barra_ancho, barra_alto), 1)
+        
+        # Mostrar texto "HP actual/HP máximo"
+        font = pygame.font.SysFont("Arial", 8, bold=True)
+        texto_hp = f"{self.hp}/{self.hp_max}"
+        text_surface = font.render(texto_hp, True, WHITE)
+        # Sombra para legibilidad
+        shadow_surface = font.render(texto_hp, True, BLACK)
+        superficie.blit(shadow_surface, (text_rect.x + 1, text_rect.y + 1))
+        superficie.blit(text_surface, text_rect)
     """Base con estadísticas RPG."""
     
     def __init__(self, grid_x, grid_y, team, tipo_key):
@@ -397,7 +553,58 @@ def resolver_combate(atacante: PiezaSombra, defensor: PiezaSombra):
 
 ```python
 def juego_sombras():
-    tablero = TableroSombras()
+    """Modo Sombras: Jugador (Azul) vs Boss IA (Rojo)."""
+    
+    # MEJORA v2.1: Cargar gestor de recursos para imágenes
+    from modelos import GestorRecursos
+    gestor = GestorRecursos()
+    
+    # Crear tablero con gestor (activa imágenes PNG)
+    tablero = TableroSombras(gestor_recursos=gestor)
+    ia = IASombras(tablero)
+    
+    pantalla = pygame.display.set_mode((800, 600))
+    turno = "JUGADOR"
+    
+    while corriendo:
+        # Turno del Jugador: Click para seleccionar/mover
+        if turno == "JUGADOR":
+            # Manejar eventos de mouse
+            # Si movimiento válido → cambiar a turno "ENEMIGO"
+        
+        # Turno de la IA
+        if turno == "ENEMIGO":
+            ia.invocar_sombra()  # 30% chance
+            movimiento = ia.calcular_movimiento()
+            if movimiento:
+                tablero.mover_pieza(*movimiento)
+            turno = "JUGADOR"
+        
+        # Dibujar tablero
+        pantalla.fill((30, 30, 30))
+        tablero.dibujar(pantalla)
+        
+        # MEJORA v2.1: Dibujar barras de HP sobre todas las piezas
+        for pieza in tablero.piezas:
+            pieza.dibujar_barra_hp(pantalla)
+        
+        pygame.display.flip()
+        
+        # Verificar condiciones de victoria/derrota
+        if tablero.boss_muerto():
+            print("¡VICTORIA! Derrotaste al Rey Caído")
+            break
+        elif tablero.jugador_muerto():
+            print("¡DERROTA! El Rey Caído te venció")
+            break
+```
+
+**Elementos visuales v2.1:**
+- ✅ Imágenes PNG de piezas clásicas
+- ✅ Boss con imagen especial (`boss.png`) y doble borde dorado
+- ✅ Barras de HP con código de colores (verde/amarillo/rojo)
+- ✅ Números de HP visibles ("50/100")
+- ✅ Presentación didáctica y profesional
     ia = IASombras()
     turno = TEAM_PLAYER
     
