@@ -3,12 +3,14 @@
 Orquesta el flujo inicial:
 - Muestra el menú principal
 - Inicia la partida local (Jugador vs Jugador)
-- Inicia partidas en red LAN (Servidor o Cliente)
+- Inicia partidas en red LAN (Servidor o Cliente) con descubrimiento automático
 - Controla el bucle principal de juego delegando UI y lógica al módulo ui
 """
 import pygame
+import socket
+import threading
 from ui import Menu, InterfazUsuario
-from lan import ServidorAjedrez, ClienteAjedrez
+from lan import ServidorAjedrez, ClienteAjedrez, DescubridorServidores, PUERTO_JUEGO
 from modelos import Color
 
 def main():
@@ -90,22 +92,70 @@ def juego_local():
 def juego_lan_servidor():
     """Ejecuta una partida LAN actuando como servidor (juega con blancas)."""
     # Crear el servidor
-    servidor = ServidorAjedrez(puerto=8080)
+    servidor = ServidorAjedrez(puerto=PUERTO_JUEGO)
     if not servidor.iniciar():
         print("Error al iniciar el servidor")
         return
     
     # Crear interfaz mostrando que esperamos conexión
     interfaz = InterfazUsuario()
-    interfaz.mensaje_estado = "Esperando conexión del cliente..."
-    interfaz.dibujar_tablero()
-    pygame.display.flip()
+    clock = pygame.time.Clock()
     
-    # Esperar conexión con timeout de 60 segundos
+    # Esperar conexión con bucle que actualiza pantalla
     print("Esperando cliente (60 segundos)...")
-    if not servidor.esperar_conexion(timeout=60.0):
-        print("No se conectó ningún cliente")
-        servidor.cerrar()
+    tiempo_inicio = pygame.time.get_ticks() / 1000.0
+    timeout_conexion = 60.0
+    
+    while not servidor.conectado:
+        dt = clock.tick(60) / 1000.0
+        tiempo_elapsed = (pygame.time.get_ticks() / 1000.0) - tiempo_inicio
+        
+        # Verificar timeout
+        if tiempo_elapsed > timeout_conexion:
+            print("No se conectó ningún cliente")
+            servidor.cerrar()
+            return
+        
+        # Manejar eventos de Pygame (permitir cerrar ventana)
+        for evento in pygame.event.get():
+            if evento.type == pygame.QUIT:
+                servidor.cerrar()
+                return
+        
+        # Intentar aceptar conexión (no bloqueante)
+        if servidor.socket_servidor:
+            try:
+                servidor.socket_servidor.settimeout(0.1)
+                cliente_socket, cliente_addr = servidor.socket_servidor.accept()
+                servidor.socket_cliente = cliente_socket
+                servidor.direccion_cliente = cliente_addr
+                servidor.socket_cliente.settimeout(0.1)
+                servidor.conectado = True
+                servidor._ejecutando = True
+                
+                # Iniciar hilo de escucha
+                servidor.hilo_escucha = threading.Thread(
+                    target=servidor._escuchar_movimientos, 
+                    daemon=True
+                )
+                servidor.hilo_escucha.start()
+                
+                print(f"Cliente conectado desde {cliente_addr}")
+                break
+            except socket.timeout:
+                pass
+            except Exception:
+                pass
+        
+        # Actualizar mensaje con tiempo restante
+        tiempo_restante = int(timeout_conexion - tiempo_elapsed)
+        interfaz.mensaje_estado = f"Esperando cliente... ({tiempo_restante}s)"
+        
+        # Redibujar
+        interfaz.dibujar_tablero()
+        pygame.display.flip()
+    
+    if not servidor.conectado:
         return
     
     # Variable para almacenar movimientos del oponente
@@ -125,6 +175,7 @@ def juego_lan_servidor():
     while True:
         dt = clock.tick(60) / 1000.0
         interfaz.actualizar_tiempos(dt)
+        interfaz.mensaje_estado = None  # Limpiar mensaje de espera
         
         # Verificar si hay movimiento del oponente
         if movimiento_pendiente['origen'] is not None:
@@ -172,16 +223,49 @@ def juego_lan_servidor():
 
 def juego_lan_cliente():
     """Ejecuta una partida LAN conectándose a un servidor (juega con negras)."""
-    # Solicitar IP del servidor mediante input de consola
-    print("\n=== CONECTAR A SERVIDOR ===")
-    host = input("Introduce la IP del servidor (o 'localhost' para local): ").strip()
-    if not host:
-        host = "localhost"
+    print("\n=== BUSCAR SERVIDORES EN LA LAN ===")
+    
+    # Buscar servidores automáticamente
+    descubridor = DescubridorServidores(timeout_busqueda=3.0)
+    servidores = descubridor.buscar_servidores()
+    
+    # Si no hay servidores, permitir ingreso manual
+    if not servidores:
+        print("\nNo se encontraron servidores automáticamente.")
+        print("Ingresa la IP del servidor manualmente (o 'localhost' para local)")
+        host = input("IP del servidor: ").strip()
+        if not host:
+            host = "localhost"
+    else:
+        # Mostrar servidores encontrados
+        print(f"\nServidores encontrados: {len(servidores)}")
+        ips = list(servidores.keys())
+        
+        for i, ip in enumerate(ips, 1):
+            print(f"{i}. {ip}:{servidores[ip]['puerto']}")
+        
+        # Si hay solo uno, usar ese
+        if len(ips) == 1:
+            host = ips[0]
+            print(f"\nConectando automáticamente a {host}...")
+        else:
+            # Permitir selección
+            try:
+                seleccion = input(f"Selecciona un servidor (1-{len(ips)}): ").strip()
+                indice = int(seleccion) - 1
+                if 0 <= indice < len(ips):
+                    host = ips[indice]
+                else:
+                    print("Opción inválida")
+                    return
+            except (ValueError, IndexError):
+                print("Opción inválida")
+                return
     
     # Crear el cliente y conectar
     cliente = ClienteAjedrez()
-    print(f"Conectando a {host}:8080...")
-    if not cliente.conectar(host, puerto=8080, timeout=10.0):
+    print(f"Conectando a {host}:{PUERTO_JUEGO}...")
+    if not cliente.conectar(host, puerto=PUERTO_JUEGO, timeout=10.0):
         print("No se pudo conectar al servidor")
         return
     
