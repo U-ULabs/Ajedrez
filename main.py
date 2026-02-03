@@ -18,6 +18,8 @@ from ajedrez_sombras import TableroSombras, IASombras
 def main():
     try:
         # Menú principal: seleccionar modo
+        # CAMBIO 3: Pasar modo="default" (opcional, es el valor por defecto)
+        # Para usar imagen personalizada, cambiar a modo="classic" o modo="soul"
         menu_principal = Menu([
             "AJEDREZ CLÁSICO",
             "AJEDREZ SOMBRAS (RPG)",
@@ -31,13 +33,15 @@ def main():
         
         # Iniciar modo seleccionado
         if modo == "AJEDREZ CLÁSICO":
+            # CAMBIO 4: Usar fondo de menú clásico con modo="classic"
+            # Esto cargará la imagen /images/menu_classic.png
             menu_clasico = Menu([
                 "Jugador vs Jugador",
                 "Partida LAN - Crear Servidor",
                 "Partida LAN - Unirse a Servidor",
                 "Jugador vs Máquina (Stockfish)",
                 "Volver"
-            ])
+            ], modo="classic")
             opcion = menu_clasico.loop()
             
             if opcion == "Jugador vs Jugador":
@@ -50,10 +54,12 @@ def main():
                 juego_vs_maquina()
         
         elif modo == "AJEDREZ SOMBRAS (RPG)":
+            # CAMBIO 5: Usar fondo de menú sombras con modo="soul"
+            # Esto cargará la imagen /images/menu_soul.png
             menu_sombras = Menu([
                 "Jugador vs Boss IA",
                 "Volver"
-            ])
+            ], modo="soul")
             opcion = menu_sombras.loop()
             
             if opcion == "Jugador vs Boss IA":

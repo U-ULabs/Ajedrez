@@ -11,9 +11,13 @@ from modelos import Color, EstadoJuego, GestorRecursos
 from ajedrez_clasico import Tablero
 
 class Menu:
-    def __init__(self, opciones: List[str]):
+    def __init__(self, opciones: List[str], modo: str = "default"):
         """Inicializa el menú con una lista de opciones.
         - Carga el sonido 'ficha.mp3' para reproducir al navegar/confirmar.
+        
+        # CAMBIO 1: Agregar parámetro 'modo' al constructor
+        # - modo puede ser: "default", "classic", "soul"
+        # - Este parámetro determina qué imagen de fondo cargar
         """
         pygame.init()
         self.pantalla = pygame.display.set_mode((600, 400))
@@ -23,11 +27,24 @@ class Menu:
         # Gestor de recursos para acceder a sonidos del proyecto
         self._gestor = GestorRecursos()
         self._sonido_ficha = self._gestor.obtener_sonido("FICHA")
-        # Fondo del menú (menu.png en /images). Si no existe, se deja None.
+        
+        # CAMBIO 2: Modificar la lógica de carga de fondo según el modo
+        # - Si modo == "classic": cargar "menu_classic.png"
+        # - Si modo == "soul": cargar "menu_soul.png"  
+        # - Si modo == "default": cargar "menu.png" (comportamiento actual)
+        # - Si falla la carga, usar fondo sólido
         self._fondo_menu = None
         try:
+            # Determinar qué imagen de fondo usar según el modo
+            if modo == "classic":
+                nombre_fondo = "menu_classic.png"
+            elif modo == "soul":
+                nombre_fondo = "menu_soul.png"
+            else:
+                nombre_fondo = "menu.png"
+            
             # Cargar y escalar la imagen de fondo al tamaño de la ventana
-            ruta_fondo = os.path.join(self._gestor.directorio_imagenes, "menu.png")
+            ruta_fondo = os.path.join(self._gestor.directorio_imagenes, nombre_fondo)
             fondo = pygame.image.load(ruta_fondo).convert()
             self._fondo_menu = pygame.transform.scale(fondo, self.pantalla.get_size())
         except Exception:
