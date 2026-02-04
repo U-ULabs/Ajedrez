@@ -3,6 +3,7 @@
 from .tablero_sombras import TableroSombras
 from .pieza_sombras import PiezaSombra, PiezaSombraPeon, PiezaSombraCaballo, PiezaSombraAlpil, PiezaSombraTorre, PiezaSombraReina, PiezaSombraRey
 from .ia_sombras import IASombras
+from .ajedrez_sombras import juego_sombras
 from .constantes import *
 
 __all__ = [
@@ -15,4 +16,5 @@ __all__ = [
     'PiezaSombraReina',
     'PiezaSombraRey',
     'IASombras',
+    'juego_sombras',
 ]
