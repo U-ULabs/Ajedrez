@@ -146,21 +146,72 @@ def _lan_a_coords(lan: str):
     return (sq_to_xy(a, r1), sq_to_xy(b, r2))
 
 
-def juego_vs_maquina():
-    """Ejecuta una partida contra Stockfish local (jugador blancas, IA negras).
+def _obtener_movimiento_aleatorio(tablero):
+    """Obtiene un movimiento aleatorio legal para la IA.
     
-    Usa motor_ajedrez con threading no-bloqueante para evitar congelamiento
-    de la interfaz mientras Stockfish calcula.
+    Busca todas las piezas del color actual, obtiene sus movimientos válidos,
+    y elige uno al azar.
+    
+    Args:
+        tablero: El tablero de juego
+    
+    Returns:
+        Tupla (origen, destino) de coordenadas, o None si no hay movimientos
+    """
+    import random
+    
+    movimientos_posibles = []
+    
+    # Buscar todas las piezas del color actual
+    for casilla, pieza in tablero.casillas.items():
+        if pieza and pieza.color == tablero.turno:
+            # Obtener movimientos legales de esta pieza
+            movimientos = tablero.obtener_movimientos_legales(casilla)
+            for destino in movimientos:
+                movimientos_posibles.append((casilla, destino))
+    
+    # Elegir movimiento aleatorio si hay disponibles
+    if movimientos_posibles:
+        return random.choice(movimientos_posibles)
+    
+    return None
+
+
+def juego_vs_maquina(motor_type: str = "stockfish"):
+    """Ejecuta una partida contra IA (jugador blancas, IA negras).
+    
+    Args:
+        motor_type: Tipo de IA
+                   - "stockfish": Motor UCI profesional (requiere instalación)
+                   - "random": IA aleatoria (siempre disponible)
+    
+    Usa threading no-bloqueante para evitar congelamiento de la interfaz.
     """
     interfaz = InterfazUsuario()
     seleccionado = None
     clock = pygame.time.Clock()
     
-    # Inicializar motor con nivel medio
-    motor = MotorAjedrez(nivel=NivelDificultad.MEDIO)
-    if not motor.disponible:
-        print("⚠️  Stockfish no disponible. Abortando partida vs máquina.")
-        return
+    # Inicializar motor según tipo seleccionado
+    motor = None
+    motor_disponible = False
+    
+    if motor_type == "stockfish":
+        motor = MotorAjedrez(nivel=NivelDificultad.MEDIO)
+        if not motor.disponible:
+            print("⚠️  Stockfish no disponible.")
+            print("   👉 Descarga desde: https://stockfishchess.org/download/")
+            print("   👉 Coloca en: ./stockfish/")
+            print("   👉 O ejecuta: python verificar_setup.py")
+            print("\nFallback a IA Aleatoria...")
+            motor_type = "random"
+            motor_disponible = False
+        else:
+            print("✓ Stockfish conectado")
+            motor_disponible = True
+    
+    if motor_type == "random":
+        print("✓ IA Aleatoria seleccionada")
+        motor_disponible = False
     
     # Variables para manejo de búsqueda asincrónica
     movimiento_ia_listo = False
@@ -179,35 +230,59 @@ def juego_vs_maquina():
             
             # Si es turno de la IA (negras)
             if interfaz.tablero.turno == Color.NEGRO:
-                if not motor.esta_calculando() and not movimiento_ia_listo:
-                    # Iniciar búsqueda asincrónica
-                    motor.buscar_movimiento_async(
-                        interfaz.tablero.casillas,
-                        interfaz.tablero.turno,
-                        callback_movimiento_ia
-                    )
-                    interfaz.mensaje_estado = "🤖 Stockfish pensando..."
+                if motor_type == "stockfish" and motor_disponible:
+                    # Usar Stockfish (asincrónico)
+                    if not motor.esta_calculando() and not movimiento_ia_listo:
+                        motor.buscar_movimiento_async(
+                            interfaz.tablero.casillas,
+                            interfaz.tablero.turno,
+                            callback_movimiento_ia
+                        )
+                        interfaz.mensaje_estado = "🤖 Stockfish pensando..."
+                    
+                    # Si el movimiento está listo, ejecutarlo
+                    if movimiento_ia_listo and resultado_ia and resultado_ia.exitoso:
+                        lan = resultado_ia.movimiento_lan
+                        coords = _lan_a_coords(lan)
+                        if coords:
+                            origen, destino = coords
+                            if interfaz.tablero.realizar_movimiento(origen, destino):
+                                interfaz.reproducir_sonido_movimiento()
+                                movimiento_ia_listo = False
+                                resultado_ia = None
+                                interfaz.mensaje_estado = None
+                            else:
+                                print(f"❌ Movimiento de Stockfish inválido: {lan}")
+                                break
+                        else:
+                            print(f"❌ No se pudo convertir movimiento: {lan}")
+                            break
+                    elif movimiento_ia_listo and (not resultado_ia or resultado_ia.error):
+                        print(f"❌ Error de Stockfish: {resultado_ia.error if resultado_ia else 'Desconocido'}")
+                        break
                 
-                # Si el movimiento está listo, ejecutarlo
-                if movimiento_ia_listo and resultado_ia and resultado_ia.exitoso:
-                    lan = resultado_ia.movimiento_lan
-                    coords = _lan_a_coords(lan)
-                    if coords:
-                        origen, destino = coords
+                elif motor_type == "random":
+                    # Usar IA aleatoria (bloqueante pero rápido)
+                    interfaz.mensaje_estado = "🎲 IA Aleatoria pensando..."
+                    interfaz.dibujar_tablero(seleccionado)
+                    pygame.display.flip()
+                    
+                    # Pequeño delay para que se vea el mensaje
+                    pygame.time.wait(200)
+                    
+                    # Obtener movimiento aleatorio
+                    movimiento_aleatorio = _obtener_movimiento_aleatorio(interfaz.tablero)
+                    if movimiento_aleatorio:
+                        origen, destino = movimiento_aleatorio
                         if interfaz.tablero.realizar_movimiento(origen, destino):
                             interfaz.reproducir_sonido_movimiento()
-                            movimiento_ia_listo = False
-                            resultado_ia = None
                             interfaz.mensaje_estado = None
                         else:
-                            print(f"❌ Movimiento de Stockfish inválido: {lan}")
+                            print("❌ Movimiento aleatorio inválido")
                             break
                     else:
-                        print(f"❌ No se pudo convertir movimiento: {lan}")
+                        print("❌ No hay movimientos disponibles")
                         break
-                elif movimiento_ia_listo and (not resultado_ia or resultado_ia.error):
-                    print(f"❌ Error de Stockfish: {resultado_ia.error if resultado_ia else 'Desconocido'}")
-                    break
             
             # Manejo de eventos: clics y cierre de ventana
             continuar, click = interfaz.manejar_eventos()
@@ -238,8 +313,9 @@ def juego_vs_maquina():
             pygame.display.flip()
     
     finally:
-        motor.cerrar()
-        print("Partida vs máquina finalizada")
+        if motor and motor_disponible:
+            motor.cerrar()
+        print(f"\nPartida vs {motor_type.capitalize()} finalizada")
 
 
 def juego_lan_servidor():
