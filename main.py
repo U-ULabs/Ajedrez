@@ -5,6 +5,7 @@ Orquesta el flujo inicial:
 - Soporta dos modos: Ajedrez Clásico y Ajedrez Sombras
 - Inicia partidas locales, LAN o vs IA según modo
 - Controla el bucle principal de juego
+- Integración con Stockfish mediante motor_ajedrez.py
 """
 import pygame
 import socket
@@ -13,6 +14,7 @@ from ui import Menu, InterfazUsuario
 from lan import ServidorAjedrez, ClienteAjedrez, DescubridorServidores, PUERTO_JUEGO
 from modelos import Color
 from reglas import sugerir_movimiento
+from motor_ajedrez import MotorAjedrez, NivelDificultad, EstadoMotor
 from ajedrez_sombras import TableroSombras, IASombras
 
 def main():
@@ -41,7 +43,7 @@ def main():
                     "Jugador vs Jugador",
                     "Partida LAN - Crear Servidor",
                     "Partida LAN - Unirse a Servidor",
-                    "Jugador vs Máquina (Stockfish)",
+                    "Jugador vs Máquina",
                     "Volver"
                 ], modo="classic")
                 opcion = menu_clasico.loop()
@@ -52,8 +54,19 @@ def main():
                     juego_lan_servidor()
                 elif opcion == "Partida LAN - Unirse a Servidor":
                     juego_lan_cliente()
-                elif opcion == "Jugador vs Máquina (Stockfish)":
-                    juego_vs_maquina()
+                elif opcion == "Jugador vs Máquina":
+                    # Submenu para elegir tipo de IA
+                    menu_ia = Menu([
+                        "Stockfish (Motor UCI)",
+                        "IA Aleatoria",
+                        "Volver"
+                    ], modo="classic")
+                    tipo_ia = menu_ia.loop()
+                    
+                    if tipo_ia == "Stockfish (Motor UCI)":
+                        juego_vs_maquina(motor_type="stockfish")
+                    elif tipo_ia == "IA Aleatoria":
+                        juego_vs_maquina(motor_type="random")
                 # Si opcion == "Volver" o None, el bucle continúa y vuelve al menú principal
             
             elif modo == "AJEDREZ SOMBRAS (RPG)":
@@ -134,66 +147,99 @@ def _lan_a_coords(lan: str):
 
 
 def juego_vs_maquina():
-    """Ejecuta una partida contra Stockfish local (jugador blancas, IA negras)."""
+    """Ejecuta una partida contra Stockfish local (jugador blancas, IA negras).
+    
+    Usa motor_ajedrez con threading no-bloqueante para evitar congelamiento
+    de la interfaz mientras Stockfish calcula.
+    """
     interfaz = InterfazUsuario()
     seleccionado = None
     clock = pygame.time.Clock()
     
-    while True:
-        dt = clock.tick(60) / 1000.0
-        interfaz.actualizar_tiempos(dt)
-        
-        # Si es turno de la IA (negras), pedir jugada al motor local
-        if interfaz.tablero.turno == Color.NEGRO:
-            # Mostrar estado mientras el motor calcula (bloqueante por diseño)
-            interfaz.mensaje_estado = "Pensando..."
-            interfaz.dibujar_tablero(seleccionado)
-            pygame.display.flip()
+    # Inicializar motor con nivel medio
+    motor = MotorAjedrez(nivel=NivelDificultad.MEDIO)
+    if not motor.disponible:
+        print("⚠️  Stockfish no disponible. Abortando partida vs máquina.")
+        return
+    
+    # Variables para manejo de búsqueda asincrónica
+    movimiento_ia_listo = False
+    resultado_ia = None
+    
+    def callback_movimiento_ia(resultado):
+        """Callback cuando el motor termina la búsqueda."""
+        nonlocal movimiento_ia_listo, resultado_ia
+        resultado_ia = resultado
+        movimiento_ia_listo = True
+    
+    try:
+        while True:
+            dt = clock.tick(60) / 1000.0
+            interfaz.actualizar_tiempos(dt)
             
-            # El motor se detecta automáticamente (PATH o carpeta stockfish/)
-            lan = sugerir_movimiento(interfaz.tablero.casillas, interfaz.tablero.turno, motor="stockfish", nivel="medio")
-            coords = _lan_a_coords(lan) if lan else None
-            if coords:
-                origen, destino = coords
-                if interfaz.tablero.realizar_movimiento(origen, destino):
-                    interfaz.reproducir_sonido_movimiento()
-                else:
-                    # Evitar bucle infinito si el movimiento del motor no encaja en el tablero interno
-                    print("Movimiento de Stockfish inválido para el tablero actual")
+            # Si es turno de la IA (negras)
+            if interfaz.tablero.turno == Color.NEGRO:
+                if not motor.esta_calculando() and not movimiento_ia_listo:
+                    # Iniciar búsqueda asincrónica
+                    motor.buscar_movimiento_async(
+                        interfaz.tablero.casillas,
+                        interfaz.tablero.turno,
+                        callback_movimiento_ia
+                    )
+                    interfaz.mensaje_estado = "🤖 Stockfish pensando..."
+                
+                # Si el movimiento está listo, ejecutarlo
+                if movimiento_ia_listo and resultado_ia and resultado_ia.exitoso:
+                    lan = resultado_ia.movimiento_lan
+                    coords = _lan_a_coords(lan)
+                    if coords:
+                        origen, destino = coords
+                        if interfaz.tablero.realizar_movimiento(origen, destino):
+                            interfaz.reproducir_sonido_movimiento()
+                            movimiento_ia_listo = False
+                            resultado_ia = None
+                            interfaz.mensaje_estado = None
+                        else:
+                            print(f"❌ Movimiento de Stockfish inválido: {lan}")
+                            break
+                    else:
+                        print(f"❌ No se pudo convertir movimiento: {lan}")
+                        break
+                elif movimiento_ia_listo and (not resultado_ia or resultado_ia.error):
+                    print(f"❌ Error de Stockfish: {resultado_ia.error if resultado_ia else 'Desconocido'}")
                     break
-            else:
-                print("No se pudo obtener jugada de Stockfish")
+            
+            # Manejo de eventos: clics y cierre de ventana
+            continuar, click = interfaz.manejar_eventos()
+            if not continuar:
                 break
             
-            interfaz.mensaje_estado = None
-        
-        # Manejo de eventos: clics y cierre de ventana
-        continuar, click = interfaz.manejar_eventos()
-        if not continuar:
-            break
-        
-        # Turno del jugador (blancas)
-        if click and interfaz.tablero.turno == Color.BLANCO:
-            if seleccionado is None:
-                if (click in interfaz.tablero.casillas and 
-                    interfaz.tablero.casillas[click] and 
-                    interfaz.tablero.casillas[click].color == interfaz.tablero.turno):
-                    seleccionado = click
-            else:
-                if interfaz.tablero.realizar_movimiento(seleccionado, click):
-                    interfaz.reproducir_sonido_movimiento()
-                    seleccionado = None
-                else:
+            # Turno del jugador (blancas)
+            if click and interfaz.tablero.turno == Color.BLANCO:
+                if seleccionado is None:
                     if (click in interfaz.tablero.casillas and 
                         interfaz.tablero.casillas[click] and 
                         interfaz.tablero.casillas[click].color == interfaz.tablero.turno):
                         seleccionado = click
-                    else:
+                else:
+                    if interfaz.tablero.realizar_movimiento(seleccionado, click):
+                        interfaz.reproducir_sonido_movimiento()
                         seleccionado = None
-        
-        # Redibujar tablero y actualizar pantalla
-        interfaz.dibujar_tablero(seleccionado)
-        pygame.display.flip()
+                    else:
+                        if (click in interfaz.tablero.casillas and 
+                            interfaz.tablero.casillas[click] and 
+                            interfaz.tablero.casillas[click].color == interfaz.tablero.turno):
+                            seleccionado = click
+                        else:
+                            seleccionado = None
+            
+            # Redibujar tablero y actualizar pantalla
+            interfaz.dibujar_tablero(seleccionado)
+            pygame.display.flip()
+    
+    finally:
+        motor.cerrar()
+        print("Partida vs máquina finalizada")
 
 
 def juego_lan_servidor():

@@ -1,8 +1,14 @@
 # ==============================================================================
-# DEPENDENCIAS DEL PROYECTO AJEDREZ v2.0
+# DEPENDENCIAS DEL PROYECTO AJEDREZ v2.1
 # ==============================================================================
 # Versiones probadas con Python 3.14.2 en Windows 10/11
 # Instalación: pip install -r requirements.txt
+#
+# CAMBIOS v2.1:
+# - Integración centralizada de Stockfish (motor_ajedrez.py)
+# - Threading asincrónico para UI responsiva
+# - IA Sombras mejorada con análisis estratégico
+# Ver: docs/STOCKFISH.md para instalación del motor UCI
 # ==============================================================================
 
 # MOTOR GRÁFICO Y MULTIMEDIA
@@ -12,6 +18,7 @@ pygame-ce==2.5.6
 
 # MOTORES Y LIBRERÍAS DE AJEDREZ
 # python-chess - Validación de movimientos, generación de FEN, integración UCI
+# Nota: Stockfish debe descargarse por separado desde https://stockfishchess.org/download/
 python-chess==1.999
 
 # ==============================================================================

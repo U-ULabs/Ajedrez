@@ -2,6 +2,8 @@
 
 Proyecto modular para practicar POO con un juego de ajedrez en Pygame, con integración de reglas vía python-chess, soporte de sonido, motores UCI locales y **juego en red LAN**.
 
+**✨ v2.1:** Integración profesional de Stockfish con threading asincrónico. [Ver cambios](#-v21---stockfish-integration)
+
 ## 📚 Wiki del Proyecto
 
 Para documentación completa y detallada, visita la **[Wiki del Proyecto](wiki/Home.md)**:
@@ -120,13 +122,63 @@ python main.py
 
 ## Motores UCI (opcional)
 - Coloca `stockfish.exe` y/o `lc0.exe` accesibles (PATH o junto al proyecto).
-- Usa [reglas.py](file:///e:/GIT/Ajedrez/reglas.py) para sugerir jugadas:
+- Usa [motor_ajedrez.py](motor_ajedrez.py) para integración centralizada:
 ```python
-from reglas import sugerir_movimiento
-lan = sugerir_movimiento(casillas, turno, motor="stockfish", nivel="medio")
+from motor_ajedrez import MotorAjedrez, NivelDificultad
+
+motor = MotorAjedrez(nivel=NivelDificultad.MEDIO)
+movimiento = motor.buscar_movimiento(casillas, turno)
+motor.cerrar()
 ```
-- Niveles: `facil` (~200 ms), `medio` (~500 ms), `dificil` (~2000 ms).
+- Niveles: `FACIL` (100 ms), `MEDIO` (500 ms), `DIFICIL` (2000 ms), `ANALISIS` (5000 ms).
+- Búsqueda asincrónica con threading: `motor.buscar_movimiento_async(casillas, turno, callback)`
+
+## 🆕 v2.1 - Stockfish Integration
+
+### ✨ Cambios Principales
+
+- **motor_ajedrez.py**: Módulo centralizado con interfaz profesional
+- **Threading asincrónico**: UI nunca se congela
+- **Detección automática**: Busca Stockfish en PATH y carpetas locales
+- **4 Niveles de dificultad**: FACIL/MEDIO/DIFICIL/ANALISIS
+- **IA Sombras mejorada**: Boss utiliza análisis estratégico
+- **100% Backward compatible**: Código antiguo sigue funcionando
+
+### 📖 Documentación v2.1
+
+- **[00_LEER_PRIMERO.md](00_LEER_PRIMERO.md)** - Resumen ejecutivo
+- **[QUICKSTART_STOCKFISH.md](QUICKSTART_STOCKFISH.md)** - Guía rápida (5 min)
+- **[docs/STOCKFISH.md](docs/STOCKFISH.md)** - Instalación completa por SO
+- **[CAMBIOS_v2.1_STOCKFISH.md](CAMBIOS_v2.1_STOCKFISH.md)** - Detalles técnicos
+- **[verificar_setup.py](verificar_setup.py)** - Script de validación
+
+### 🚀 Inicio Rápido
+
+```bash
+# 1. Descargar Stockfish desde https://stockfishchess.org/download/
+# 2. Crear carpeta e instalar
+mkdir ./stockfish
+# Extraer binario aquí
+
+# 3. Verificar
+python verificar_setup.py
+
+# 4. Jugar
+python main.py
+# → AJEDREZ CLÁSICO → Jugador vs Máquina (Stockfish)
+```
+
+### 💡 Características
+
+- ✅ **No se congela**: Threading asincrónico mantiene UI responsiva
+- ✅ **Automática**: Detección del motor sin configuración manual
+- ✅ **Escalable**: Reutilizable en todos los modos (clásico, sombras, LAN)
+- ✅ **Configurable**: 4 niveles de dificultad
+- ✅ **Robusta**: Fallback automático si hay errores
 
 ## Notas
-- El menú actualmente ofrece el modo local entre dos jugadores. La guía incluye pasos para extender a IA y APIs.
+
+- El menú ahora ofrece "Jugador vs Máquina (Stockfish)" con integración profesional
+- Toda la documentación está en cada archivo para referencia rápida
+- Compatible con Windows/Linux/macOS
 - El GestorRecursos tolera faltantes: crea placeholders y deshabilita sonido si `pygame.mixer` no está disponible.
