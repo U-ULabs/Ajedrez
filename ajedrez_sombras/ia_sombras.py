@@ -6,65 +6,72 @@ from .constantes import *
 from .pieza_sombras import PiezaSombraPeon
 
 
+class VirtualBoard:
+    """Clase ligera para simular movimientos sin afectar el tablero real."""
+    def __init__(self, piezas_data):
+        self.grid = [[None for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
+        self.piezas = []
+        for p_data in piezas_data:
+            p_obj = type('VirtualPiece', (), p_data)
+            self.grid[p_data['y']][p_data['x']] = p_obj
+            self.piezas.append(p_obj)
+
+    def obtener_pieza_en(self, x, y):
+        if 0 <= x < GRID_WIDTH and 0 <= y < GRID_HEIGHT:
+            return self.grid[y][x]
+        return None
+
+
 class IASombras:
     """Inteligencia Artificial del Boss con sistema Minimax y Poda Alfa-Beta."""
     
-    # Valores base de las piezas para la evaluación
     VALORES_PIEZAS = {
         "PEON": 10,
         "CABALLO": 30,
         "ALFIL": 30,
         "TORRE": 50,
         "REINA": 90,
-        "REY": 900,
-        "BOSS": 2000 # El Boss es intocable
+        "REY": 1000,
+        "BOSS": 2000
     }
     
     def __init__(self, tablero):
         self.tablero = tablero
-        self.cache_evaluaciones = {} # Transposition Table
+        self.cache_evaluaciones = {}
     
     def calcular_movimiento(self):
-        """Calcula el mejor movimiento usando Minimax con Poda Alfa-Beta."""
-        self.cache_evaluaciones.clear() # Limpiar caché por turno
+        self.cache_evaluaciones.clear()
         
         mejor_movimiento = None
         mejor_puntaje = -float('inf')
         
-        # Obtener estado ligero del tablero para simulación
         estado_inicial = self._obtener_representacion_estado()
-        
-        # Búsqueda inicial (Raíz del Minimax)
         posibles_movimientos = self._obtener_todos_los_movimientos(estado_inicial, TEAM_ENEMY)
         
-        # Ordenar movimientos para mejorar la poda alfa-beta (heurística de movimiento matador)
+        if not posibles_movimientos:
+            return None
+
         random.shuffle(posibles_movimientos) 
+        depth = 3
         
-        depth = 3 # Profundidad de búsqueda (3 turnos adelante)
-        
-        for p_idx, nx, ny in posibles_movimientos:
-            # Simular movimiento
-            nuevo_estado = self._simular_movimiento(estado_inicial, p_idx, nx, ny)
-            
-            # Llamada recursiva a Minimax
+        for p_idx_in_estado, nx, ny in posibles_movimientos:
+            nuevo_estado = self._simular_movimiento(estado_inicial, p_idx_in_estado, nx, ny)
             puntaje = self._minimax(nuevo_estado, depth - 1, -float('inf'), float('inf'), False)
             
             if puntaje > mejor_puntaje:
                 mejor_puntaje = puntaje
-                # Recuperar la pieza real del tablero usando el índice
-                pieza_real = self.tablero.obtener_piezas_por_equipo(TEAM_ENEMY)[p_idx]
-                mejor_movimiento = (pieza_real, nx, ny)
+                # Recuperar la pieza real usando el objeto guardado en p_data
+                p_data = estado_inicial['piezas'][p_idx_in_estado]
+                mejor_movimiento = (p_data['original_obj'], nx, ny)
 
         return mejor_movimiento
 
     def _minimax(self, estado, profundidad, alfa, beta, es_maximizando):
-        """Algoritmo recursivo Minimax con Poda Alfa-Beta."""
-        # Verificar caché
-        state_hash = str(estado)
+        # Crear un hash estable sin incluir las referencias a objetos
+        state_hash = tuple(sorted((p['x'], p['y'], p['team'], p['tipo'], p['hp']) for p in estado['piezas']))
         if state_hash in self.cache_evaluaciones:
             return self.cache_evaluaciones[state_hash]
 
-        # Casos base: profundidad agotada o fin del juego
         if profundidad == 0 or self._esta_terminado(estado):
             ev = self._evaluar_estado(estado)
             self.cache_evaluaciones[state_hash] = ev
@@ -79,7 +86,7 @@ class IASombras:
                 max_eval = max(max_eval, ev)
                 alfa = max(alfa, ev)
                 if beta <= alfa:
-                    break # Poda
+                    break
             return max_eval
         else:
             min_eval = float('inf')
@@ -90,44 +97,29 @@ class IASombras:
                 min_eval = min(min_eval, ev)
                 beta = min(beta, ev)
                 if beta <= alfa:
-                    break # Poda
+                    break
             return min_eval
 
     def _evaluar_estado(self, estado):
-        """Función de evaluación avanzada considerando HP, DMG y posición."""
         puntaje = 0
-        piezas = estado['piezas']
-        
-        for p in piezas:
+        for p in estado['piezas']:
             valor_base = self.VALORES_PIEZAS.get(p['tipo'], 10)
-            
-            # Valor ajustado por vida restante (RPG)
             porcentaje_hp = p['hp'] / p['hp_max']
             valor_actual = valor_base * (0.5 + 0.5 * porcentaje_hp)
             
             if p['team'] == TEAM_ENEMY:
                 puntaje += valor_actual
-                
-                # Bonus estratégico: Proteger al Boss
                 if p['es_boss']:
                     if porcentaje_hp < 0.3:
-                        puntaje -= 500 # Penalización masiva si el Boss está herido
+                        puntaje -= 500
                     
-                # Bonus de posición: Control central
                 dist_centro = abs(3.5 - p['x']) + abs(3.5 - p['y'])
                 puntaje += (8 - dist_centro) * 0.5
             else:
                 puntaje -= valor_actual
-                
-                # Penalización por dejar piezas solas
-                # (Bonus si la IA está cerca del Rey jugador)
-                if p['tipo'] == "REY":
-                    pass # Ya se restó el valor del Rey
-
         return puntaje
 
     def _obtener_representacion_estado(self):
-        """Convierte las piezas del tablero en una estructura de datos ligera."""
         rep = {'piezas': []}
         for p in self.tablero.piezas:
             rep['piezas'].append({
@@ -138,62 +130,67 @@ class IASombras:
                 'hp': p.hp,
                 'hp_max': p.hp_max,
                 'damage': p.damage,
-                'es_boss': p.es_boss
+                'es_boss': p.es_boss,
+                'original_obj': p # Guardar referencia al objeto real
             })
         return rep
 
     def _obtener_todos_los_movimientos(self, estado, equipo):
-        """Calcula todos los movimientos posibles para un equipo en un estado dado."""
         movimientos = []
-        piezas_equipo = [i for i, p in enumerate(estado['piezas']) if p['team'] == equipo]
+        v_board = VirtualBoard(estado['piezas'])
         
-        # Nota: Aquí usamos una simplificación de los movimientos para no replicar toda la lógica.
-        # Pero para que sea preciso, el IASombras debe poder consultar al Tablero real.
-        for idx in piezas_equipo:
-            p_real = self.tablero.obtener_piezas_por_equipo(equipo)[idx]
-            # Usar la lógica real de las clases de piezas
-            for nx, ny in p_real.obtener_movimientos_validos(self.tablero):
-                movimientos.append((idx, nx, ny))
+        for idx, p_data in enumerate(estado['piezas']):
+            if p_data['team'] == equipo:
+                p_real = p_data['original_obj']
+                
+                old_x, old_y = p_real.grid_x, p_real.grid_y
+                p_real.grid_x, p_real.grid_y = p_data['x'], p_data['y']
+                
+                validos = p_real.obtener_movimientos_validos(v_board)
+                
+                p_real.grid_x, p_real.grid_y = old_x, old_y
+                
+                for nx, ny in validos:
+                    movimientos.append((idx, nx, ny))
         return movimientos
 
     def _simular_movimiento(self, estado, p_idx, nx, ny):
-        """Genera un nuevo estado simulando el movimiento."""
-        nuevo_estado = copy.deepcopy(estado)
+        # Usar copy.copy y manejar la lista de piezas manualmente para evitar deepcopy de objetos pieza
+        nuevo_estado = {
+            'piezas': [p.copy() for p in estado['piezas']]
+        }
         pieza = nuevo_estado['piezas'][p_idx]
         
-        # Verificar si hay captura/ataque
-        objetivo = None
+        o_idx = -1
         for i, p in enumerate(nuevo_estado['piezas']):
             if p['x'] == nx and p['y'] == ny and i != p_idx:
-                objetivo = p
                 o_idx = i
                 break
         
-        if objetivo:
+        if o_idx != -1:
+            objetivo = nuevo_estado['piezas'][o_idx]
             if objetivo['team'] != pieza['team']:
-                # Combate
                 objetivo['hp'] -= pieza['damage']
                 if objetivo['hp'] <= 0:
                     nuevo_estado['piezas'].pop(o_idx)
-                    # Mover a la casilla muerta
-                    pieza['x'], pieza['y'] = nx, ny
-                # Si no muere, la pieza atacante se queda donde está (mecánica de Sombras)
-            else:
-                pass # No se debería llegar aquí (movimientos válidos ya filtran aliados)
+                    # Si la pieza que se movió estaba después en la lista, su índice cambió
+                    if o_idx < p_idx:
+                        # Buscamos la pieza de nuevo por referencia si fuera necesario, 
+                        # pero aquí simplemente actualizamos la posición de la pieza correcta.
+                        pieza['x'], pieza['y'] = nx, ny
+                    else:
+                        pieza['x'], pieza['y'] = nx, ny
         else:
-            # Movimiento normal
             pieza['x'], pieza['y'] = nx, ny
             
         return nuevo_estado
 
     def _esta_terminado(self, estado):
-        """Verifica si el juego terminó en el estado simulado."""
         has_boss = any(p['es_boss'] for p in estado['piezas'])
         has_king = any(p['team'] == TEAM_PLAYER and p['tipo'] == "REY" for p in estado['piezas'])
         return not has_boss or not has_king
 
     def invocar_sombra(self):
-        """30% de probabilidad de invocar una Sombra adyacente al Boss."""
         if random.random() < 0.3:
             boss = self._obtener_boss()
             if boss:
@@ -213,20 +210,13 @@ class IASombras:
         return False
     
     def _obtener_boss(self):
-        """Obtiene la referencia al Boss."""
         for pieza in self.tablero.piezas:
             if pieza.team == TEAM_ENEMY and pieza.es_boss:
                 return pieza
         return None
     
     def _obtener_rey_jugador(self):
-        """Obtiene la referencia al Rey del jugador."""
         for pieza in self.tablero.piezas:
             if pieza.team == TEAM_PLAYER and pieza.tipo == "REY":
                 return pieza
         return None
-    
-    @staticmethod
-    def _distancia_manhattan(pos1, pos2):
-        """Calcula distancia Manhattan entre dos posiciones."""
-        return abs(pos1[0] - pos2[0]) + abs(pos1[1] - pos2[1])
