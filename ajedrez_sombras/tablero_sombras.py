@@ -86,9 +86,15 @@ class TableroSombras:
                     self.grid[y][x] = pieza
                     pieza.actualizar_posicion_pixel()
                     pieza.post_move(x_anterior, y_anterior, self)
+                    
+                    # MEJORA: Actualizar niebla tras captura
+                    if pieza.team == TEAM_PLAYER:
+                        self.actualizar_niebla(TEAM_PLAYER)
                     return True
                 else:
                     # Ataque sin movimiento (golpeó pero no mató)
+                    # Aun así actualizamos niebla porque el jugador vio el combate
+                    self.actualizar_niebla(TEAM_PLAYER)
                     return True
         
         # Movimiento normal (casilla vacía)
@@ -99,13 +105,27 @@ class TableroSombras:
             self.grid[y][x] = pieza
             pieza.actualizar_posicion_pixel()
             pieza.post_move(x_anterior, y_anterior, self)
+            
+            # MEJORA: Actualizar niebla después de mover para que el jugador vea el destino
+            if pieza.team == TEAM_PLAYER:
+                self.actualizar_niebla(TEAM_PLAYER)
+                
             return True
         
         return False
     
     def actualizar_niebla(self, equipo):
-        """Actualiza la niebla de guerra según el equipo activo."""
-        self.niebla = [[True for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
+        """
+        Actualiza la niebla de guerra. 
+        Para el JUGADOR, la disipación es PERSISTENTE (no se reinicia).
+        """
+        # Solo reiniciamos la niebla si estamos calculando para un equipo que NO es el jugador
+        # (por si acaso se usa para IA o pruebas), pero para la vista del jugador es acumulativa.
+        if equipo != TEAM_PLAYER:
+            self.niebla = [[True for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
+        
+        # Si es la primera vez (todo True), y es el jugador, no hacemos nada especial, 
+        # simplemente marcamos las nuevas zonas.
         
         for pieza in self.piezas:
             if pieza.team == equipo:
