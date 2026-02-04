@@ -42,15 +42,21 @@ class IASombras:
     def calcular_movimiento(self):
         self.cache_evaluaciones.clear()
         
-        mejor_movimiento = None
-        mejor_puntaje = -float('inf')
-        
         estado_inicial = self._obtener_representacion_estado()
         posibles_movimientos = self._obtener_todos_los_movimientos(estado_inicial, TEAM_ENEMY)
         
         if not posibles_movimientos:
             return None
 
+        # Métrica de predicciones dinámica: 
+        # (Movimientos posibles actuales) x 130 (estimación de duración)
+        # Esto reemplaza el estático 3x16 (48) x 130 para que fluctúe durante la partida.
+        predicciones = self.obtener_predicciones_estimadas(posibles_movimientos)
+        print(f"Capacidad de Predicción de IA: {predicciones}")
+        
+        mejor_movimiento = None
+        mejor_puntaje = -float('inf')
+        
         random.shuffle(posibles_movimientos) 
         depth = 3
         
@@ -65,6 +71,14 @@ class IASombras:
                 mejor_movimiento = (p_data['original_obj'], nx, ny)
 
         return mejor_movimiento
+
+    def obtener_predicciones_estimadas(self, posibles_movimientos):
+        """Calcula la complejidad de predicción de forma dinámica."""
+        # Fórmula: Movimientos totales disponibles x 130 (factor de duración sugerido)
+        # Dividimos por un factor de escala para que el rango sea más reactivo dentro de 1-1000
+        total_movs = len(posibles_movimientos)
+        valor = total_movs * 130 / 10
+        return max(1, min(1000, int(valor)))
 
     def _minimax(self, estado, profundidad, alfa, beta, es_maximizando):
         # Crear un hash estable sin incluir las referencias a objetos

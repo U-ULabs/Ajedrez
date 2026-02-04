@@ -52,7 +52,8 @@
 ```
 7 Piezas RPG          ✅ Implementado
 Niebla de Guerra      ✅ Implementado (3x3)
-Boss IA Inteligente   ✅ Implementado (Invoca 30%)
+Boss IA Inteligente   ✅ Implementado (Minimax + Alfa-Beta)
+Invocación Sombras   ✅ Implementado (30%)
 Sistema de Combate    ✅ Implementado (HP/Daño)
 Victoria/Derrota      ✅ Implementado
 ```
@@ -194,8 +195,8 @@ Ajedrez/
 ### 🚀 PRÓXIMAS FASES (Roadmap)
 
 #### v2.1 (Próximo)
-- [ ] Minimax + Alpha-Beta Pruning
-- [ ] 5+ niveles de dificultad
+- [x] Minimax + Alpha-Beta Pruning
+- [ ] 5+ niveles de dificultad (UI selector)
 - [ ] PGN guardar/cargar
 - [ ] 20+ tests unitarios
 

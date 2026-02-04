@@ -143,10 +143,9 @@ DESPUÉS: Profesional con tablas
 
 | Aspecto | Detalles | Estado |
 |---|---|---|
-| Piezas | 7 tipos con HP/Daño | ✅ Implementado |
-| Niebla de Guerra | 3x3 alrededor del Rey | ✅ Implementado |
-| Boss IA | Invoca sombras (30% probabilidad) | ✅ Implementado |
 | Combate | Sistema RPG eliminatorio | ✅ Implementado |
+| IA Boss | Minimax + Poda Alfa-Beta | ✅ Implementado |
+| Transposición | Tablas de Caché (Performance) | ✅ Implementado |
 | Victoria/Derrota | Detectadas automáticamente | ✅ Implementado |
 
 ### Infraestructura
@@ -239,6 +238,8 @@ DESPUÉS: Profesional con tablas
 ## 🎯 OBJETIVOS ALCANZADOS
 
 ✅ **Error resuelto:** 'es_boss' ahora disponible en todas las piezas  
+✅ **IA Táctica:** Implementado Minimax con Poda Alfa-Beta  
+✅ **Optimización:** Tablas de transposición para cálculo rápido  
 ✅ **Imports verificados:** Cadena completa funcionando  
 ✅ **Código comentado:** Todas las secciones de Sombras documentadas  
 ✅ **Documentación profesional:** README, Guía, Roadmap actualizados  
@@ -254,8 +255,8 @@ DESPUÉS: Profesional con tablas
 Basado en roadmap_v2.0.md:
 
 1. **Mejoras de IA** (MEDIA PRIORIDAD)
-   - Implementar Minimax + Alpha-Beta Pruning
-   - 5+ niveles de dificultad
+   - Ajuste de pesos en la función de evaluación
+   - Selección de niveles de dificultad (1-5)
 
 2. **Guardar/Cargar Partidas** (MEDIA PRIORIDAD)
    - Formato PGN
