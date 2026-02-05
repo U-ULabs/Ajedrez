@@ -92,9 +92,11 @@ def juego_sombras():
         # Verificar condiciones de victoria/derrota
         if tablero.boss_muerto():
             print("\n¡¡¡ VICTORIA !!! ¡Has derrotado al Rey Caído!")
+            ia.aprender_de_resultado(gano_ia=False)
             corriendo = False
         elif tablero.jugador_muerto():
             print("\n¡¡¡ DERROTA !!! El Rey Caído te ha vencido.")
+            ia.aprender_de_resultado(gano_ia=True)
             corriendo = False
         
         # Dibujar

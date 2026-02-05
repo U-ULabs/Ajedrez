@@ -2,6 +2,8 @@
 
 import random
 import copy
+import json
+import os
 from .constantes import *
 from .pieza_sombras import PiezaSombraPeon
 
@@ -23,7 +25,7 @@ class VirtualBoard:
 
 
 class IASombras:
-    """Inteligencia Artificial del Boss con sistema Minimax y Poda Alfa-Beta."""
+    """Inteligencia Artificial del Boss con sistema Minimax, Poda Alfa-Beta y RL-Lite."""
     
     VALORES_PIEZAS = {
         "PEON": 10,
@@ -35,9 +37,51 @@ class IASombras:
         "BOSS": 2000
     }
     
+    PESOS_DEFECTO = {
+        "W_MATERIAL": 1.0,      # Importancia del valor de las piezas
+        "W_BOSS_SAFETY": 1.0,   # Importancia de la vida del Boss
+        "W_CENTER": 0.5,        # Importancia de controlar el centro
+        "W_AGGRESSION": 1.0     # Tendencia a atacar piezas enemigas
+    }
+    
     def __init__(self, tablero):
         self.tablero = tablero
         self.cache_evaluaciones = {}
+        self.ruta_pesos = os.path.join(os.path.dirname(__file__), "ia_weights.json")
+        self.pesos = self._cargar_pesos()
+    
+    def _cargar_pesos(self):
+        """Carga los pesos aprendidos de partidas anteriores."""
+        if os.path.exists(self.ruta_pesos):
+            try:
+                with open(self.ruta_pesos, 'r') as f:
+                    return json.load(f)
+            except Exception as e:
+                print(f"Error al cargar pesos de IA: {e}")
+        return self.PESOS_DEFECTO.copy()
+    
+    def _guardar_pesos(self):
+        """Guarda los pesos actuales en el archivo JSON."""
+        try:
+            with open(self.ruta_pesos, 'w') as f:
+                json.dump(self.pesos, f, indent=4)
+        except Exception as e:
+            print(f"Error al guardar pesos de IA: {e}")
+
+    def aprender_de_resultado(self, gano_ia):
+        """Ajusta los pesos basándose en si la IA ganó o perdió."""
+        if gano_ia:
+            print("IA: 'He ganado. Reforzando táctica actual.'")
+            # Reforzar ligeramente la agresividad
+            self.pesos["W_AGGRESSION"] = min(2.0, self.pesos["W_AGGRESSION"] + 0.05)
+        else:
+            print("IA: 'He perdido. Ajustando defensa y seguridad del Boss.'")
+            # Aumentar importancia de la seguridad y bajar agresividad suicida
+            self.pesos["W_BOSS_SAFETY"] = min(3.0, self.pesos["W_BOSS_SAFETY"] + 0.15)
+            self.pesos["W_AGGRESSION"] = max(0.5, self.pesos["W_AGGRESSION"] - 0.1)
+            
+        self._guardar_pesos()
+        print(f"Nuevos pesos de IA: {self.pesos}")
     
     def calcular_movimiento(self):
         self.cache_evaluaciones.clear()
@@ -116,21 +160,36 @@ class IASombras:
 
     def _evaluar_estado(self, estado):
         puntaje = 0
+        w_mat = self.pesos.get("W_MATERIAL", 1.0)
+        w_boss = self.pesos.get("W_BOSS_SAFETY", 1.0)
+        w_center = self.pesos.get("W_CENTER", 0.5)
+        w_agg = self.pesos.get("W_AGGRESSION", 1.0)
+
         for p in estado['piezas']:
             valor_base = self.VALORES_PIEZAS.get(p['tipo'], 10)
             porcentaje_hp = p['hp'] / p['hp_max']
             valor_actual = valor_base * (0.5 + 0.5 * porcentaje_hp)
             
             if p['team'] == TEAM_ENEMY:
-                puntaje += valor_actual
+                # Bonificación por material propio
+                puntaje += valor_actual * w_mat
+                
+                # Bonus por seguridad del Boss
                 if p['es_boss']:
+                    # Si el Boss tiene poca vida, es un castigo masivo (ajustado por peso)
                     if porcentaje_hp < 0.3:
-                        puntaje -= 500
+                        puntaje -= 1000 * w_boss
+                    else:
+                        puntaje += 500 * porcentaje_hp * w_boss
                     
+                # Control del centro
                 dist_centro = abs(3.5 - p['x']) + abs(3.5 - p['y'])
-                puntaje += (8 - dist_centro) * 0.5
+                puntaje += (8 - dist_centro) * w_center
             else:
-                puntaje -= valor_actual
+                # Castigo por material del jugador (agresividad)
+                # Si W_AGGRESSION es alto, la IA valora más quitar piezas al jugador
+                puntaje -= valor_actual * w_agg
+                
         return puntaje
 
     def _obtener_representacion_estado(self):
