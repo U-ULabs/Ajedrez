@@ -295,6 +295,12 @@ class PiezaSombraPeon(PiezaSombra):
     
     def post_move(self, x_anterior, y_anterior, tablero):
         self.primer_movimiento = False
+        
+        # Verificar promoción
+        # Fila 0 para jugador, Fila 7 para enemigo
+        target_rank = 0 if self.team == TEAM_PLAYER else 7
+        if self.grid_y == target_rank:
+            tablero.promocionar_peon(self)
 
 
 class PiezaSombraCaballo(PiezaSombra):

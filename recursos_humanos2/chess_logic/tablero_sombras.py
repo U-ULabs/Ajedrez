@@ -1,6 +1,5 @@
 """Tablero del modo Sombras con niebla de guerra."""
 
-import pygame
 from .constantes import *
 from .pieza_sombras import (
     PiezaSombraPeon, PiezaSombraCaballo, PiezaSombraAlpil,
@@ -12,21 +11,15 @@ class TableroSombras:
     """Tablero 8x8 con sistema de niebla de guerra y combate RPG."""
     
     def __init__(self, gestor_recursos=None):
-        """
-        MEJORA 11: Aceptar gestor_recursos para usar imágenes reales
-        - Si gestor_recursos es None, las piezas usarán rectángulos de color (legacy)
-        - Si se pasa gestor, las piezas cargarán imágenes PNG y el Boss tendrá imagen especial
-        """
         self.grid = [[None for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
-        self.piezas = pygame.sprite.Group()
+        self.piezas = []  # Lista simple en lugar de Sprite Group
         self.niebla = [[True for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
-        self.gestor_recursos = gestor_recursos  # Guardar referencia al gestor
+        self.gestor_recursos = gestor_recursos
         self.configurar_tablero()
         self.actualizar_niebla(TEAM_PLAYER)
     
     def configurar_tablero(self):
         """Configura el tablero con disposición estándar de ajedrez."""
-        # MEJORA 12: Pasar gestor_recursos a cada pieza para usar imágenes
         # Blancas (Jugador) - Fila 7 y 6
         self.agregar_pieza(PiezaSombraTorre(0, 7, TEAM_PLAYER, self.gestor_recursos))
         self.agregar_pieza(PiezaSombraCaballo(1, 7, TEAM_PLAYER, self.gestor_recursos))
@@ -40,12 +33,11 @@ class TableroSombras:
             self.agregar_pieza(PiezaSombraPeon(x, 6, TEAM_PLAYER, self.gestor_recursos))
         
         # Negras (Enemigo) - Fila 0 y 1, con Boss
-        # MEJORA 13: El Boss (posición 4,0) usará la imagen boss.png
         self.agregar_pieza(PiezaSombraTorre(0, 0, TEAM_ENEMY, self.gestor_recursos))
         self.agregar_pieza(PiezaSombraCaballo(1, 0, TEAM_ENEMY, self.gestor_recursos))
         self.agregar_pieza(PiezaSombraAlpil(2, 0, TEAM_ENEMY, self.gestor_recursos))
         self.agregar_pieza(PiezaSombraReina(3, 0, TEAM_ENEMY, self.gestor_recursos))
-        self.agregar_pieza(PiezaSombraRey(4, 0, TEAM_ENEMY, es_boss=True, gestor_recursos=self.gestor_recursos))  # BOSS con imagen especial
+        self.agregar_pieza(PiezaSombraRey(4, 0, TEAM_ENEMY, es_boss=True, gestor_recursos=self.gestor_recursos))
         self.agregar_pieza(PiezaSombraAlpil(5, 0, TEAM_ENEMY, self.gestor_recursos))
         self.agregar_pieza(PiezaSombraCaballo(6, 0, TEAM_ENEMY, self.gestor_recursos))
         self.agregar_pieza(PiezaSombraTorre(7, 0, TEAM_ENEMY, self.gestor_recursos))
@@ -56,7 +48,7 @@ class TableroSombras:
         """Agrega una pieza al tablero."""
         if self.grid[pieza.grid_y][pieza.grid_x] is None:
             self.grid[pieza.grid_y][pieza.grid_x] = pieza
-            self.piezas.add(pieza)
+            self.piezas.append(pieza)
         else:
             print(f"No se puede añadir pieza en ({pieza.grid_x},{pieza.grid_y}), casilla ocupada.")
     
@@ -77,23 +69,22 @@ class TableroSombras:
                 # Combate RPG
                 murio = objetivo.recibir_damage(pieza.damage)
                 if murio:
-                    self.piezas.remove(objetivo)
+                    if objetivo in self.piezas:
+                        self.piezas.remove(objetivo)
                     self.grid[y][x] = None
                     # Si muere, el atacante ocupa la casilla
                     self.grid[y_anterior][x_anterior] = None
                     pieza.grid_x = x
                     pieza.grid_y = y
                     self.grid[y][x] = pieza
-                    pieza.actualizar_posicion_pixel()
+                    # pieza.actualizar_posicion_pixel()  <-- Eliminado
                     pieza.post_move(x_anterior, y_anterior, self)
                     
-                    # MEJORA: Actualizar niebla tras captura
                     if pieza.team == TEAM_PLAYER:
                         self.actualizar_niebla(TEAM_PLAYER)
                     return True
                 else:
                     # Ataque sin movimiento (golpeó pero no mató)
-                    # Aun así actualizamos niebla porque el jugador vio el combate
                     self.actualizar_niebla(TEAM_PLAYER)
                     return True
         
@@ -103,10 +94,9 @@ class TableroSombras:
             pieza.grid_x = x
             pieza.grid_y = y
             self.grid[y][x] = pieza
-            pieza.actualizar_posicion_pixel()
+            # pieza.actualizar_posicion_pixel() <-- Eliminado
             pieza.post_move(x_anterior, y_anterior, self)
             
-            # MEJORA: Actualizar niebla después de mover para que el jugador vea el destino
             if pieza.team == TEAM_PLAYER:
                 self.actualizar_niebla(TEAM_PLAYER)
                 
@@ -115,17 +105,9 @@ class TableroSombras:
         return False
     
     def actualizar_niebla(self, equipo):
-        """
-        Actualiza la niebla de guerra. 
-        Para el JUGADOR, la disipación es PERSISTENTE (no se reinicia).
-        """
-        # Solo reiniciamos la niebla si estamos calculando para un equipo que NO es el jugador
-        # (por si acaso se usa para IA o pruebas), pero para la vista del jugador es acumulativa.
+        """Actualiza la niebla de guerra."""
         if equipo != TEAM_PLAYER:
             self.niebla = [[True for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
-        
-        # Si es la primera vez (todo True), y es el jugador, no hacemos nada especial, 
-        # simplemente marcamos las nuevas zonas.
         
         for pieza in self.piezas:
             if pieza.team == equipo:
@@ -138,46 +120,11 @@ class TableroSombras:
     
     def es_visible(self, x, y, equipo):
         """Comprueba si una casilla es visible para el equipo."""
+        # Nota: En backend quizás no queramos recalcular niebla cada vez, 
+        # pero mantenemos la lógica por ahora.
         self.actualizar_niebla(equipo)
         return not self.niebla[y][x]
-    
-    def dibujar(self, pantalla):
-        """Dibuja el tablero, niebla y piezas."""
-        # Dibujar cuadrículas del tablero
-        for y in range(GRID_HEIGHT):
-            for x in range(GRID_WIDTH):
-                rect = pygame.Rect(
-                    BOARD_OFFSET_X + x * TILE_SIZE,
-                    BOARD_OFFSET_Y + y * TILE_SIZE,
-                    TILE_SIZE,
-                    TILE_SIZE
-                )
-                color = LIGHT_BOARD if (x + y) % 2 == 0 else DARK_BOARD
-                pygame.draw.rect(pantalla, color, rect)
-        
-        # Dibujar piezas
-        for pieza in self.piezas:
-            # Las piezas aliadas siempre son visibles
-            # Las piezas enemigas solo si no hay niebla
-            visible = True
-            if pieza.team != TEAM_PLAYER and self.niebla[pieza.grid_y][pieza.grid_x]:
-                visible = False
-            
-            if visible:
-                pantalla.blit(pieza.image, pieza.rect)
-        
-        # Dibujar niebla de guerra
-        for y in range(GRID_HEIGHT):
-            for x in range(GRID_WIDTH):
-                if self.niebla[y][x]:
-                    rect = pygame.Rect(
-                        BOARD_OFFSET_X + x * TILE_SIZE,
-                        BOARD_OFFSET_Y + y * TILE_SIZE,
-                        TILE_SIZE,
-                        TILE_SIZE
-                    )
-                    pygame.draw.rect(pantalla, FOG_COLOR, rect, 0)
-    
+
     def obtener_piezas_por_equipo(self, equipo):
         """Obtiene todas las piezas de un equipo."""
         return [p for p in self.piezas if p.team == equipo]
@@ -197,22 +144,30 @@ class TableroSombras:
         return True
 
     def promocionar_peon(self, peon):
-        """
-        Promociona un peón a Reina.
-        Elimina el peón y coloca una Reina en su lugar.
-        """
+        """Promociona un peón a Reina."""
         x, y = peon.grid_x, peon.grid_y
         team = peon.team
         
         # Eliminar peón
-        self.piezas.remove(peon)
+        if peon in self.piezas:
+            self.piezas.remove(peon)
         self.grid[y][x] = None
         
         # Crear Reina
-        # Importamos aquí para evitar problemas de circularidad si los hubiera
         from .pieza_sombras import PiezaSombraReina
         nueva_reina = PiezaSombraReina(x, y, team, self.gestor_recursos)
         
         # Agregar al tablero
         self.agregar_pieza(nueva_reina)
         print(f"¡Promoción! Peón en ({x}, {y}) ahora es una {nueva_reina.nombre}.")
+    
+    def to_dict(self):
+        """Serializa el estado completo del tablero."""
+        return {
+            "width": GRID_WIDTH,
+            "height": GRID_HEIGHT,
+            "piezas": [p.to_dict() for p in self.piezas],
+            "niebla": self.niebla,
+            "game_over": self.boss_muerto() or self.jugador_muerto(),
+            "winner": "PLAYER" if self.boss_muerto() else ("ENEMY" if self.jugador_muerto() else None)
+        }
